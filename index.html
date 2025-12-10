@@ -1,50 +1,870 @@
+
 <!DOCTYPE html>
-<html lang="ko">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome Page</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        .container {
-            text-align: center;
-            color: white;
-            padding: 40px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
-        h1 {
-            font-size: 3em;
-            margin: 0;
-            animation: fadeIn 1s ease-in;
-        }
-        p {
-            font-size: 1.2em;
-            margin-top: 20px;
-            animation: fadeIn 1.5s ease-in;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+<meta charset="UTF-8">
+<title>농장 & 바다 & 물 특성 업데이트</title>
+<style>
+  /* 기본 설정 */
+  body { margin:0; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#e0f7fa; user-select:none; padding-bottom: 50px; }
+
+  /* 상단 정보바 */
+  header {
+    background:#00bcd4; color:white; padding:10px 15px; position:sticky; top:0; z-index:900;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2); display:flex; justify-content:space-between; align-items:center;
+  }
+  .header-left { display:flex; flex-direction:column; }
+  #coins { font-size:22px; font-weight:bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); }
+  #diffDisplay { font-size:12px; color:#b2ebf2; margin-top:2px; font-weight:bold; }
+  #msg { font-size:14px; color:#e0f2f1; max-width: 50%; text-align:right; }
+
+  /* 컨트롤 패널 */
+  .control-panel { background:#fff; padding:10px; border-bottom:1px solid #ddd; display:flex; gap:15px; flex-wrap:wrap; justify-content:center; align-items:flex-start; }
+  .panel-group { display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
+  .group-label { font-weight:bold; font-size:14px; color:#555; margin-right:5px; }
+
+  /* 특성 정보창 */
+  .trait-info {
+    background:#e3f2fd; padding:5px 10px; border-radius:10px; border:1px solid #90caf9;
+    font-size:12px; color:#1565c0; display:flex; align-items:center; gap:5px;
+  }
+
+  .seed, .item {
+    padding:6px 12px; border:1px solid #ccc; cursor:pointer; background:#fafafa; border-radius:15px;
+    font-size:13px; transition: all 0.2s;
+  }
+  .seed:hover, .item:hover { background:#eee; }
+  .selected { 
+    background:#fff59d !important; border:2px solid #fbc02d !important; 
+    font-weight:bold; transform:scale(1.05); box-shadow:0 2px 4px rgba(0,0,0,0.1); 
+  }
+  
+  /* 작물별 스타일 */
+  .seed[data-type="moneytree"] { background:#f3e5f5; border-color:#ce93d8; color:#6a1b9a; }
+  .seed[data-type="clam"] { background:#e1f5fe; border-color:#0288d1; color:#01579b; } 
+  .seed[data-type="peach"] { background:#fce4ec; border-color:#f06292; color:#c2185b; } /* 복숭아 */
+
+  /* 아이템 스타일 */
+  .item[data-item="diamondwater"] { background:#e0f7fa; border-color:#00acc1; color:#006064; }
+  .item[data-item="emeraldwater"] { background:#e8f5e9; border-color:#2e7d32; color:#1b5e20; }
+
+  /* 메인 레이아웃 */
+  #main-container { display:flex; flex-wrap:wrap; justify-content:center; gap:20px; padding:20px; }
+
+  /* 구역 박스 */
+  .area-box { background:white; padding:15px; border-radius:15px; box-shadow:0 4px 10px rgba(0,0,0,0.05); }
+  h2.area-title { margin-top:0; text-align:center; color:#333; border-bottom:2px solid #eee; padding-bottom:10px; margin-bottom:15px; }
+
+  /* 농장 그리드 */
+  #farm { display:grid; grid-template-columns:repeat(5, 70px); gap:5px; } 
+  @media (min-width: 800px) { #farm { grid-template-columns:repeat(10, 70px); } }
+
+  .tile {
+    width:70px; height:70px; background:#c2a878; border:2px solid #8b6f47; border-radius:4px;
+    display:flex; justify-content:center; align-items:center; position:relative; cursor:pointer;
+  }
+  .plant { font-size:35px; z-index:2; }
+  .timer { 
+    position:absolute; bottom:2px; font-size:10px; color:white;
+    background:rgba(0,0,0,0.6); padding:1px 4px; border-radius:4px; pointer-events:none; z-index:3;
+  }
+  
+  /* 물 특성 아이콘 (작물 위) */
+  .trait-icon {
+    position:absolute; top:2px; right:2px; font-size:16px; z-index:5;
+    animation: bounce 1.5s infinite; filter: drop-shadow(0 0 2px white);
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+
+  /* 플로팅 텍스트 */
+  .float-text {
+    position:absolute; color:#ffeb3b; font-weight:bold; font-size:16px; z-index:10;
+    text-shadow: 1px 1px 2px black; animation: floatUp 0.8s forwards; pointer-events: none; width: 100%; text-align: center;
+  }
+  @keyframes floatUp { 0% { transform:translateY(0); opacity:1; } 100% { transform:translateY(-40px); opacity:0; } }
+
+  /* 동물 농장 */
+  #animalFarm { width: 320px; }
+  .pet-section { margin-bottom: 20px; background:#f9f9f9; padding:10px; border-radius:10px; }
+  .section-title { font-weight:bold; margin-bottom:5px; color:#555; font-size:14px; }
+  
+  .pet-stats { display:flex; justify-content:space-around; margin-bottom:10px; }
+  .pet-card { text-align:center; font-size:12px; background:#fff; padding:8px 5px; border-radius:8px; border:1px solid #eee; width:30%; box-shadow:0 2px 2px rgba(0,0,0,0.05); }
+  .pet-icon { font-size:24px; display:block; margin-bottom:2px; }
+  .pet-count { font-weight:bold; color:#009688; font-size:16px; }
+  
+  .egg-btn {
+    width:100%; padding:12px; color:white; border:none; border-radius:8px; font-size:14px; font-weight:bold; cursor:pointer; margin-top:5px;
+    transition: transform 0.1s;
+  }
+  .egg-btn:active { transform:translateY(2px); }
+  
+  #staticBuyEggBtn { background:#ff9800; box-shadow: 0 4px 0 #e65100; }
+  #staticBuySeaEggBtn { background:#2196f3; box-shadow: 0 4px 0 #0d47a1; }
+
+  /* 팝업 공통 */
+  .popup {
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    background:#fff; padding:0; border-radius:15px; z-index:99999;
+    width:400px; max-width: 90%; text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    transition: opacity 0.3s, transform 0.3s; overflow: hidden;
+  }
+  .popup-header { background:#00bcd4; color:white; padding:15px; font-size:20px; font-weight:bold; }
+  .popup-content { padding: 20px; }
+  .hidden { display:none !important; }
+  .fade-out-scale { opacity: 0; transform: translate(-50%, -50%) scale(0.8); pointer-events: none; }
+
+  /* 상점 탭 */
+  .shop-tabs { display:flex; justify-content:space-around; background:#f0f0f0; border-bottom:1px solid #ddd; }
+  .shop-tab { padding:10px 15px; cursor:pointer; font-weight:bold; color:#555; border-bottom:3px solid transparent; width:50%; text-align:center; }
+  .shop-tab.active { color:#00bcd4; border-bottom:3px solid #00bcd4; background:white; }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  /* 리스트 스타일 */
+  .list-container { max-height: 250px; overflow-y: auto; text-align:left; margin-bottom:15px; border:1px solid #eee; border-radius:8px; padding: 5px 0; }
+  .shop-item, .inv-item { padding:10px 15px; border-bottom:1px solid #f7f7f7; display:flex; justify-content:space-between; align-items:center; }
+  .shop-item:last-child, .inv-item:last-child { border-bottom: none; }
+
+  /* 버튼 */
+  .btn-flat { background:#eee; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold; }
+  .btn-buy { background:#00bcd4; color:white; }
+  .btn-sell-pearl { background:#e91e63; color:white; animation: pulse 1s infinite; }
+  .diff-btn { 
+    display:block; width:100%; margin:10px 0; padding:12px; font-size:16px; 
+    background:#fff; border:2px solid #ddd; border-radius:8px; cursor:pointer; transition:0.2s;
+  }
+  .diff-btn:hover { background:#e0f7fa; border-color:#00bcd4; }
+
+  /* 펫 개봉 버튼 그룹 */
+  .hatch-btn-group button { margin-left: 3px; font-size:11px; padding: 4px 6px; }
+  .btn-sea { background:#2196f3; color:white; }
+  .btn-land { background:#ff9800; color:white; }
+
+  /* 펫 개봉 애니메이션 창 */
+  #hatchWindow { z-index: 999999; background: linear-gradient(135deg, #e3f2fd, #fff); border: 5px solid #0288d1; }
+  .egg-hatch-animation { animation: pulse 0.5s infinite alternate, shine 1s; background:radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 70%); padding:20px; border-radius:15px; }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.05); } }
+  @keyframes shine { 0% { box-shadow: 0 0 10px #03a9f4; } 50% { box-shadow: 0 0 40px #03a9f4, 0 0 20px #81d4fa; } 100% { box-shadow: 0 0 10px #03a9f4; } }
+  .hatch-result-text { font-size:30px; font-weight:bold; color:#01579b; text-shadow:2px 2px #fff; margin-top:10px; }
+
+  /* 메뉴 버튼 */
+  #inventoryBtn, #shopBtn {
+    position:fixed; right:20px; width:50px; height:50px; border-radius:50%;
+    background:white; cursor:pointer; border:2px solid #ccc; font-size:20px;
+    z-index:1000000; box-shadow:0 4px 6px rgba(0,0,0,0.2); display:flex; justify-content:center; align-items:center;
+  }
+  #shopBtn { bottom:80px; background:#e1f5fe; color:#0288d1; border-color:#03a9f4; }
+  #inventoryBtn { bottom:20px; background:#fff3e0; color:#e64a19; border-color:#ff9800; }
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>🎮 Welcome! 🎮</h1>
-        <p>This is a simple HTML page</p>
-        <p>Created on December 10, 2025</p>
+
+<header>
+  <div class="header-left">
+    <div id="coins">💰 0</div>
+    <div id="diffDisplay">난이도: 미선택</div>
+  </div>
+  <div id="msg">환영합니다!</div>
+</header>
+
+<button id="shopBtn" title="상점">🛒</button>
+<button id="inventoryBtn" title="인벤토리">🎒</button>
+
+<!-- 난이도 선택 -->
+<div id="difficultyWindow" class="popup">
+  <div class="popup-header">🎮 난이도 선택</div>
+  <div class="popup-content">
+    <button class="diff-btn" data-diff="easy" data-name="쉬움">🙂 쉬움 (500코인)</button>
+    <button class="diff-btn" data-diff="normal" data-name="보통">😐 보통 (300코인)</button>
+    <button class="diff-btn" data-diff="hard" data-name="어려움">😫 어려움 (150코인)</button>
+    <button class="diff-btn" data-diff="admin" data-name="관리자">⚡ 관리자 (무한)</button>
+  </div>
+</div>
+
+<!-- 펫 개봉 애니메이션 창 -->
+<div id="hatchWindow" class="popup hidden">
+  <h2>펫 부화!</h2>
+  <div class="egg-hatch-animation">
+    <div id="hatchIcon" style="font-size:80px;">🥚</div>
+  </div>
+  <div class="hatch-result-text" id="hatchName">...</div>
+  <div style="font-size:14px; margin-top:5px; color:#555;" id="hatchSummary"></div>
+  <button class="diff-btn" style="margin-top:20px;" onclick="document.getElementById('hatchWindow').classList.add('hidden')">확인</button>
+</div>
+
+<!-- 컨트롤 패널 -->
+<div class="control-panel">
+  <div class="trait-info" title="작물을 심을 때 20% 확률로 부여됨">
+    <span>💡 특성 정보: </span>
+    <span>💧 = 판매가 3배!</span>
+  </div>
+  <div class="panel-group">
+    <span class="group-label">🌱 씨앗:</span>
+    <div id="seeds" style="display:flex; gap:5px;"></div>
+  </div>
+  <div class="panel-group">
+    <span class="group-label">🛠 도구:</span>
+    <div id="items" style="display:flex; gap:5px;">
+      <div class="item" data-item="water">💧 물(5분)</div>
+      <div class="item" data-item="goldwater">✨ 황금(25분)</div>
+      <div class="item" data-item="diamondwater">💎 다이아(45분)</div>
+      <div class="item" data-item="emeraldwater">💚 에메랄드(120분)</div>
     </div>
+  </div>
+</div>
+
+<!-- 메인 영역 -->
+<div id="main-container">
+  
+  <div class="area-box">
+    <h2 class="area-title">🌽 농장</h2>
+    <div id="farm"></div>
+  </div>
+
+  <div class="area-box" id="animalFarm">
+    <h2 class="area-title">🐾 동물 농장</h2>
+    
+    <!-- 육지 동물 -->
+    <div class="pet-section">
+      <div class="section-title">🏞️ 육지 동물</div>
+      <div class="pet-stats">
+        <div class="pet-card"><span class="pet-icon">🐶</span><div>성장+5%</div><div class="pet-count" id="cnt_dog">0</div></div>
+        <div class="pet-card"><span class="pet-icon">🐱</span><div>+1000/10초</div><div class="pet-count" id="cnt_cat">0</div></div>
+        <div class="pet-card"><span class="pet-icon">🐸</span><div>5분 급성장</div><div class="pet-count" id="cnt_frog">0</div></div>
+      </div>
+      <button id="staticBuyEggBtn" class="egg-btn">🥚 육지 알 구매 (100코인)</button>
+    </div>
+
+    <!-- 바다 동물 -->
+    <div class="pet-section" style="background:#e3f2fd;">
+      <div class="section-title">🌊 바다 동물</div>
+      <div class="pet-stats">
+        <div class="pet-card"><span class="pet-icon">🦭</span><div>판매가+5%</div><div class="pet-count" id="cnt_seal">0</div></div>
+        <div class="pet-card"><span class="pet-icon">🦀</span><div>템 줍기</div><div class="pet-count" id="cnt_crab">0</div></div>
+        <div class="pet-card"><span class="pet-icon">🦈</span><div>2배 획득</div><div class="pet-count" id="cnt_shark">0</div></div>
+      </div>
+      <button id="staticBuySeaEggBtn" class="egg-btn">🔵 바다 알 구매 (500코인)</button>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- 상점 팝업 -->
+<div id="shopWindow" class="popup hidden">
+  <div class="popup-header">🏪 상점</div>
+  <div class="shop-tabs">
+    <div class="shop-tab active" data-tab="seeds-tab">🌱 씨앗/알</div>
+    <div class="shop-tab" data-tab="items-tab">🛠 아이템</div>
+  </div>
+  <div class="popup-content">
+    <div class="tab-content active" id="seeds-tab">
+      <div class="list-container" id="shopSeedList"></div>
+    </div>
+    <div class="tab-content" id="items-tab">
+      <div class="list-container" id="shopItemList"></div>
+    </div>
+    <button id="closeShop" class="diff-btn">닫기</button>
+  </div>
+</div>
+
+<!-- 인벤토리 팝업 -->
+<div id="inventoryWindow" class="popup hidden">
+  <div class="popup-header">🎒 인벤토리</div>
+  <div class="popup-content">
+    <div class="list-container">
+      
+      <!-- 보물(진주) -->
+      <div class="inv-item" id="pearlInvItem" style="display:none; background:#fce4ec;">
+        <div>🔮 <b>진주</b>: <span id="inv_pearl">0</span>개</div>
+        <button class="btn-flat btn-sell-pearl" id="sellPearlBtn">1개 판매 (10만)</button>
+      </div>
+
+      <!-- 육지 알 -->
+      <div class="inv-item">
+        <div>🥚 <b>육지 알</b>: <span id="inv_egg">0</span>개</div>
+        <div class="hatch-btn-group">
+          <button class="btn-flat btn-land hatchEggBtn" data-type="land" data-count="1">1개</button>
+          <button class="btn-flat btn-land hatchEggBtn" data-type="land" data-count="3">3개</button>
+          <button class="btn-flat btn-land hatchEggBtn" data-type="land" data-count="10">10개</button>
+        </div>
+      </div>
+
+      <!-- 바다 알 -->
+      <div class="inv-item" style="background:#e1f5fe;">
+        <div>🔵 <b>바다 알</b>: <span id="inv_seaEgg">0</span>개</div>
+        <div class="hatch-btn-group">
+          <button class="btn-flat btn-sea hatchEggBtn" data-type="sea" data-count="1">1개</button>
+          <button class="btn-flat btn-sea hatchEggBtn" data-type="sea" data-count="3">3개</button>
+          <button class="btn-flat btn-sea hatchEggBtn" data-type="sea" data-count="10">10개</button>
+        </div>
+      </div>
+
+      <hr>
+      <div class="inv-item">💧 물뿌리개: <span id="inv_water">0</span></div>
+      <div class="inv-item">✨ 황금 물뿌리개: <span id="inv_goldwater">0</span></div>
+      <div class="inv-item">💎 다이아 물뿌리개: <span id="inv_diamondwater">0</span></div>
+      <div class="inv-item">💚 에메랄드 물뿌리개: <span id="inv_emeraldwater">0</span></div>
+      <hr>
+      <div id="inventorySeedList"></div>
+    </div>
+    <button id="closeInv" class="diff-btn">닫기</button>
+  </div>
+</div>
+
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+
+  // ========================
+  // 1. 데이터 설정
+  // ========================
+  let coins = 0;
+  let growSpeed = 1; 
+  let currentDiffName = "미선택";
+  
+  const petInfo = {
+    dog: { name: "강아지", icon: "🐶", desc: "성장 속도 5% ↑" },
+    cat: { name: "고양이", icon: "🐱", desc: "10초마다 1,000코인" },
+    frog: { name: "개구리", icon: "🐸", desc: "5분마다 급성장" },
+    seal: { name: "물개", icon: "🦭", desc: "판매 가격 5% ↑" },
+    crab: { name: "꽃게", icon: "🦀", desc: "10% 확률로 아이템" },
+    shark: { name: "상어", icon: "🦈", desc: "20% 확률로 2배 코인" }
+  };
+  
+  let pets = { dog: 0, cat: 0, frog: 0, seal: 0, crab: 0, shark: 0 }; 
+
+  const plantInfo = {
+    potato:   {name:"감자", cost:10,  sell:15,  grow:2*60000,  stages:["🌱","🌿","🥔"]},
+    tomato:   {name:"토마토", cost:30,  sell:45,  grow:5*60000,  stages:["🌱","🌿","🍅"]},
+    tulip:    {name:"튤립", cost:50,  sell:80,  grow:10*60000, stages:["🌱","🌿","🌷"]},
+    wheat:    {name:"밀",   cost:100, sell:150, grow:15*60000, stages:["🌱","🌿","🌾"]},
+    pumpkin:  {name:"호박", cost:150, sell:230, grow:20*60000, stages:["🌱","🌿","🎃"]},
+    persimmon:{name:"홍시", cost:200, sell:320, grow:30*60000, stages:["🌱","🌿","🍊"]},
+    mango:    {name:"망고", cost:300, sell:500, grow:45*60000, stages:["🌱","🌿","🥭"]},
+    // 복숭아 추가
+    peach:    {name:"🍑복숭아", cost:500, sell:666, grow:50*60000, stages:["🌱","🌿","🍑"]},
+    clam:     {name:"🐚조개", cost:444, sell:555, grow:44*60000, stages:["💧","🐚","✨🐚"], isSpecial:true},
+    moneytree:{name:"💰돈나무", cost:100000, sell:0, grow:60*60000, stages:["🌱","🌳","💰"], isSpecial:true} 
+  };
+
+  const itemInfo = {
+    water:       {name:"물뿌리개", cost:100, reduce:5*60000},
+    goldwater:   {name:"황금물뿌리개", cost:250, reduce:25*60000},
+    diamondwater:{name:"다이아물뿌리개", cost:500, reduce:45*60000},
+    emeraldwater:{name:"에메랄드물", cost:1000, reduce:120*60000} 
+  };
+
+  let inventory = { egg:0, seaEgg:0, pearl:0, water:0, goldwater:0, diamondwater:0, emeraldwater:0 };
+  for(let key in plantInfo) inventory[key] = 0;
+
+  let selectedSeed = "potato";
+  let selectedItem = null;
+
+  // ========================
+  // 2. 초기화 및 UI 생성
+  // ========================
+  
+  // 씨앗 버튼
+  const seedContainer = document.getElementById("seeds");
+  for(let key in plantInfo){
+    const div = document.createElement("div");
+    div.className = "seed";
+    if(key === "potato") div.classList.add("selected");
+    div.dataset.type = key;
+    div.textContent = plantInfo[key].name;
+    
+    div.onclick = () => {
+      if(selectedSeed === key) selectedSeed = null;
+      else { selectedSeed = key; selectedItem = null; }
+      updateSelectionUI();
+    };
+    seedContainer.appendChild(div);
+  }
+
+  // 아이템 버튼
+  document.querySelectorAll(".item").forEach(btn => {
+    btn.onclick = () => {
+      const clickedItem = btn.dataset.item;
+      if(selectedItem === clickedItem) selectedItem = null;
+      else { selectedItem = clickedItem; selectedSeed = null; }
+      updateSelectionUI();
+    };
+  });
+
+  function updateSelectionUI(){
+    document.querySelectorAll(".seed").forEach(el => {
+      el.classList.toggle("selected", el.dataset.type === selectedSeed);
+    });
+    document.querySelectorAll(".item").forEach(el => {
+      el.classList.toggle("selected", el.dataset.item === selectedItem);
+    });
+  }
+
+  // 상점 목록
+  const shopSeedList = document.getElementById("shopSeedList");
+  for(let key in plantInfo){
+    const p = plantInfo[key];
+    shopSeedList.innerHTML += `<div class="shop-item"><span>${p.name} (가격: ${p.cost.toLocaleString()})</span><button class="btn-flat btn-buy buySeedBtn" data-seed="${key}">구매</button></div>`;
+  }
+  shopSeedList.innerHTML += `<div class="shop-item" style="background:#fff3e0;"><span>🥚 **육지 알** (100코인)</span><button class="btn-flat btn-buy buyEggBtn">구매</button></div>`;
+  shopSeedList.innerHTML += `<div class="shop-item" style="background:#e1f5fe;"><span>🔵 **바다 알** (500코인)</span><button class="btn-flat btn-sea buySeaEggBtn">구매</button></div>`;
+
+  const shopItemList = document.getElementById("shopItemList");
+  for(let key in itemInfo){
+    const item = itemInfo[key];
+    shopItemList.innerHTML += `<div class="shop-item"><span>${item.name} (${item.cost}코인)</span><button class="btn-flat btn-buy buyItemBtn" data-item="${key}">구매</button></div>`;
+  }
+
+  // 인벤토리 씨앗 목록
+  const invSeedList = document.getElementById("inventorySeedList");
+  for(let key in plantInfo){
+    const div = document.createElement("div");
+    div.className = "inv-item";
+    div.innerHTML = `${plantInfo[key].name}: <span id="inv_${key}">0</span>`;
+    invSeedList.appendChild(div);
+  }
+
+  // 농장 타일
+  const farm = document.getElementById("farm");
+  for(let i=0; i<50; i++){
+    const t = document.createElement("div");
+    t.className = "tile";
+    t.onclick = () => onTileClick(t);
+    farm.appendChild(t);
+  }
+
+  // ========================
+  // 3. 팝업 및 이벤트 처리
+  // ========================
+
+  const diffWindow = document.getElementById("difficultyWindow");
+  document.querySelectorAll(".diff-btn").forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(btn.id === "closeShop" || btn.id === "closeInv") return; 
+
+      const diff = btn.dataset.diff;
+      currentDiffName = btn.dataset.name;
+      
+      if(diff === "easy") coins = 500;
+      else if(diff === "normal") coins = 300;
+      else if(diff === "hard") coins = 150;
+      else if(diff === "admin") { coins = 999999999; growSpeed = 50; }
+
+      updateCoinDisplay();
+      document.getElementById("diffDisplay").textContent = `난이도: ${currentDiffName}`;
+
+      diffWindow.classList.add("fade-out-scale");
+      setTimeout(() => {
+        diffWindow.classList.add("hidden");
+        diffWindow.classList.remove("fade-out-scale");
+      }, 300);
+    });
+  });
+
+  document.querySelectorAll(".shop-tab").forEach(tab => {
+    tab.onclick = function() {
+      document.querySelectorAll(".shop-tab").forEach(t => t.classList.remove("active"));
+      this.classList.add("active");
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+      document.getElementById(this.dataset.tab).classList.add("active");
+    };
+  });
+
+  // ========================
+  // 4. 알 / 진주 / 아이템 로직
+  // ========================
+  
+  function buyEgg(type) {
+    if(type === 'sea'){
+        if(coins < 500){ showMsg("코인이 부족합니다 (500코인)"); return; }
+        coins -= 500;
+        inventory.seaEgg++;
+        showMsg("🔵 바다 알 구매 완료!");
+    } else {
+        if(coins < 100){ showMsg("코인이 부족합니다 (100코인)"); return; }
+        coins -= 100;
+        inventory.egg++;
+        showMsg("🥚 육지 알 구매 완료!");
+    }
+    updateCoinDisplay();
+    updateInventoryUI();
+  }
+
+  document.getElementById("staticBuyEggBtn").onclick = () => buyEgg('land');
+  document.getElementById("staticBuySeaEggBtn").onclick = () => buyEgg('sea');
+
+  document.querySelectorAll(".hatchEggBtn").forEach(btn => {
+    btn.onclick = function() {
+      const count = Number(this.dataset.count);
+      const type = this.dataset.type; 
+      hatchEggs(type, count);
+    };
+  });
+
+  function hatchEggs(type, count){
+    const invKey = (type === 'sea') ? 'seaEgg' : 'egg';
+    if(inventory[invKey] < count){ showMsg(`알이 ${count}개 부족합니다.`); return; }
+
+    inventory[invKey] -= count;
+    
+    const results = {};
+    for(let i=0; i<count; i++){
+      const r = Math.random();
+      let petKey = "";
+      
+      if(type === 'sea'){
+        if(r < 0.50) petKey = "seal";
+        else if(r < 0.80) petKey = "crab";
+        else petKey = "shark";
+      } else {
+        if(r < 0.80) petKey = "dog";
+        else if(r < 0.95) petKey = "cat";
+        else petKey = "frog";
+      }
+      
+      pets[petKey]++;
+      results[petKey] = (results[petKey] || 0) + 1;
+    }
+
+    updatePetUI();
+    updateInventoryUI();
+    
+    let mostKey = Object.keys(results)[0]; 
+    let maxVal = -1;
+    for(let k in results){
+        if(results[k] > maxVal){ maxVal = results[k]; mostKey = k; }
+    }
+    let pet = petInfo[mostKey];
+
+    const hatchWindow = document.getElementById("hatchWindow");
+    const hatchIcon = document.getElementById("hatchIcon");
+    const hatchName = document.getElementById("hatchName");
+    const hatchSummary = document.getElementById("hatchSummary");
+    
+    hatchIcon.textContent = (type==='sea') ? "🔵" : "🥚";
+    hatchName.textContent = "부화중...";
+    hatchSummary.textContent = `${count}개의 알에서...`;
+    hatchWindow.classList.remove("hidden");
+
+    setTimeout(() => {
+      const summaryArr = [];
+      for(let k in results) {
+          if(results[k]>0) summaryArr.push(`${petInfo[k].icon}x${results[k]}`);
+      }
+      
+      hatchIcon.textContent = pet.icon;
+      hatchName.textContent = `${count}개 개봉!`;
+      hatchSummary.textContent = summaryArr.join(' | ');
+      hatchIcon.classList.add("egg-hatch-animation");
+
+      showMsg(`🎊 ${count}개 알 개봉 완료!`);
+      setTimeout(() => hatchIcon.classList.remove("egg-hatch-animation"), 1000);
+    }, 500); 
+  }
+
+  // 진주 판매
+  document.getElementById("sellPearlBtn").onclick = () => {
+    if(inventory.pearl > 0){
+        inventory.pearl--;
+        coins += 100000;
+        updateCoinDisplay();
+        updateInventoryUI();
+        showMsg("🔮 진주를 100,000코인에 판매했습니다!");
+    } else {
+        showMsg("판매할 진주가 없습니다.");
+    }
+  };
+
+  // ========================
+  // 5. 업데이트 & 펫 효과
+  // ========================
+
+  function updatePetUI(){
+    document.getElementById("cnt_dog").textContent = pets.dog;
+    document.getElementById("cnt_cat").textContent = pets.cat;
+    document.getElementById("cnt_frog").textContent = pets.frog;
+    document.getElementById("cnt_seal").textContent = pets.seal;
+    document.getElementById("cnt_crab").textContent = pets.crab;
+    document.getElementById("cnt_shark").textContent = pets.shark;
+  }
+  
+  function updateCoinDisplay(){
+    document.getElementById("coins").textContent = `💰 ${coins.toLocaleString()}`;
+  }
+
+  function showMsg(txt){
+    const msg = document.getElementById("msg");
+    msg.textContent = txt;
+    setTimeout(()=> msg.textContent="...", 3000);
+  }
+
+  function updateInventoryUI(){
+    document.getElementById("inv_egg").textContent = inventory.egg;
+    document.getElementById("inv_seaEgg").textContent = inventory.seaEgg;
+    document.getElementById("inv_water").textContent = inventory.water;
+    document.getElementById("inv_goldwater").textContent = inventory.goldwater;
+    document.getElementById("inv_diamondwater").textContent = inventory.diamondwater;
+    document.getElementById("inv_emeraldwater").textContent = inventory.emeraldwater; 
+    
+    document.getElementById("inv_pearl").textContent = inventory.pearl;
+    const pearlItem = document.getElementById("pearlInvItem");
+    if(inventory.pearl > 0) pearlItem.style.display = "flex";
+    else pearlItem.style.display = "none";
+
+    for(let key in plantInfo){
+      const el = document.getElementById(`inv_${key}`);
+      if(el) el.textContent = inventory[key];
+    }
+    
+    document.querySelectorAll(".hatchEggBtn").forEach(btn => {
+      const invKey = (btn.dataset.type === 'sea') ? 'seaEgg' : 'egg';
+      if(inventory[invKey] < Number(btn.dataset.count)) {
+        btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
+      } else {
+        btn.style.opacity = "1"; btn.style.cursor = "pointer";
+      }
+    });
+  }
+
+  function showFloatText(element, text, color){
+    const float = document.createElement("div");
+    float.className = "float-text";
+    float.textContent = text;
+    if(color) float.style.color = color;
+    element.appendChild(float);
+    setTimeout(()=>float.remove(), 800);
+  }
+
+  function clearTile(tile){
+    tile.innerHTML = "";
+    tile.dataset.plant = "";
+    tile.dataset.trait = ""; // 특성 초기화
+    tile.removeAttribute("data-time");
+    tile.removeAttribute("data-touches");
+  }
+
+  // [펫] 고양이
+  setInterval(() => {
+    if(pets.cat > 0){
+      const gain = pets.cat * 1000;
+      coins += gain;
+      updateCoinDisplay();
+      showMsg(`🐱 고양이가 ${gain} 코인을 찾아왔어요!`);
+    }
+  }, 10000); 
+
+  // [펫] 개구리
+  setInterval(() => {
+    if(pets.frog > 0){
+      for(let i=0; i<pets.frog; i++){
+        const growingTiles = [];
+        document.querySelectorAll(".tile").forEach(t => {
+          if(t.dataset.plant && Number(t.dataset.time) > Date.now()) {
+            growingTiles.push(t);
+          }
+        });
+        if(growingTiles.length > 0){
+          const luckyTile = growingTiles[Math.floor(Math.random() * growingTiles.length)];
+          luckyTile.dataset.time = Date.now();
+          showFloatText(luckyTile, "🐸 급성장!");
+          showMsg("🐸 개구리가 작물을 급성장시켰습니다!");
+        }
+      }
+    }
+  }, 5 * 60 * 1000);
+
+
+  // ========================
+  // 6. 타일 클릭 로직
+  // ========================
+
+  function onTileClick(tile){
+    const plantType = tile.dataset.plant;
+
+    // 아이템 사용
+    if(selectedItem && plantType){
+      if(inventory[selectedItem] <= 0){ showMsg("아이템이 없습니다!"); return; }
+      inventory[selectedItem]--; updateInventoryUI();
+      let endTime = Number(tile.dataset.time);
+      endTime -= itemInfo[selectedItem].reduce;
+      if(endTime < Date.now()) endTime = Date.now();
+      tile.dataset.time = endTime;
+      showFloatText(tile, "시간 단축! ⏳");
+      return;
+    }
+
+    // 수확
+    if(plantType){
+      if(Date.now() >= Number(tile.dataset.time)){
+        
+        // 돈나무
+        if(plantType === 'moneytree'){
+            let touches = Number(tile.dataset.touches || 0);
+            const gain = Math.floor(Math.random() * 9001) + 1000;
+            coins += gain; updateCoinDisplay();
+            showFloatText(tile, `+${gain}`);
+            touches++; tile.dataset.touches = touches;
+            if(touches >= 3) clearTile(tile);
+            else { tile.style.transform = "scale(0.9)"; setTimeout(()=>tile.style.transform="scale(1)", 100); }
+            return;
+        }
+
+        // --- 조개 진주 ---
+        if(plantType === 'clam'){
+            if(Math.random() < 0.01){
+                inventory.pearl++;
+                updateInventoryUI();
+                showMsg("✨ 대박! 조개에서 진주를 발견했습니다!");
+                showFloatText(tile, "🔮 진주 획득!", "#e91e63");
+            }
+        }
+
+        let sellPrice = plantInfo[plantType].sell;
+
+        // [물 특성] 3배 적용
+        if(tile.dataset.trait === "water"){
+            sellPrice *= 3;
+        }
+
+        // [펫] 물개
+        if(pets.seal > 0){
+            sellPrice = Math.floor(sellPrice * (1 + pets.seal * 0.05));
+        }
+
+        // [펫] 상어
+        let isCrit = false;
+        if(pets.shark > 0){
+             if(Math.random() < (pets.shark * 0.2)){
+                 sellPrice *= 2;
+                 isCrit = true;
+             }
+        }
+
+        coins += sellPrice; 
+        updateCoinDisplay();
+        
+        let visualText = `+${sellPrice}`;
+        if(isCrit) visualText = `🦈 ${visualText}`;
+        if(tile.dataset.trait === "water") visualText = `💧3배! ${visualText}`;
+        
+        showFloatText(tile, visualText, isCrit ? "#ff1744" : "#ffeb3b");
+
+        // [펫] 꽃게
+        if(pets.crab > 0){
+            for(let i=0; i<pets.crab; i++){
+                if(Math.random() < 0.1){
+                    inventory.water++;
+                    showMsg("🦀 꽃게가 물뿌리개를 주웠습니다!");
+                    updateInventoryUI();
+                    break; 
+                }
+            }
+        }
+
+        clearTile(tile);
+      } else { showMsg("아직 자라는 중입니다 🌱"); }
+      return;
+    }
+
+    // 심기
+    if(selectedSeed){
+      if(inventory[selectedSeed] > 0){
+        inventory[selectedSeed]--; updateInventoryUI();
+        
+        const speedMultiplier = 1 + (pets.dog * 0.05);
+        const baseGrowTime = plantInfo[selectedSeed].grow / growSpeed;
+        const realGrowTime = baseGrowTime / speedMultiplier;
+
+        tile.dataset.plant = selectedSeed;
+        tile.dataset.time = Date.now() + realGrowTime;
+        if(selectedSeed === 'moneytree') tile.dataset.touches = 0;
+
+        // 물 특성 (Water Trait) 부여: 20% 확률
+        let traitHTML = "";
+        if(Math.random() < 0.20){
+            tile.dataset.trait = "water";
+            traitHTML = `<div class="trait-icon">💧</div>`;
+        } else {
+            tile.dataset.trait = "";
+        }
+
+        const initialIcon = (selectedSeed==='clam') ? "💧" : "🌱";
+        tile.innerHTML = `<div class="plant">${initialIcon}</div>${traitHTML}<div class="timer">준비중</div>`;
+      } else { showMsg("씨앗이 부족합니다!"); document.getElementById("shopWindow").classList.remove("hidden"); }
+    }
+  }
+
+  // 성장 루프
+  setInterval(() => {
+    document.querySelectorAll(".tile").forEach(tile => {
+      const type = tile.dataset.plant;
+      if(!type) return;
+
+      const endTime = Number(tile.dataset.time);
+      const timeLeft = endTime - Date.now();
+      
+      const plantDiv = tile.querySelector(".plant");
+      const timerDiv = tile.querySelector(".timer");
+
+      if(plantDiv){
+        if(timeLeft <= 0) plantDiv.textContent = plantInfo[type].stages[2];
+        else if(timeLeft < (plantInfo[type].grow/growSpeed)/2) plantDiv.textContent = plantInfo[type].stages[1];
+        else plantDiv.textContent = plantInfo[type].stages[0];
+      }
+
+      if(timerDiv){
+        if(timeLeft <= 0){
+          const text = (type === 'moneytree') ? `터치: ${3 - (Number(tile.dataset.touches)||0)}` : "수확!";
+          timerDiv.textContent = text;
+          timerDiv.style.background = (type === 'moneytree') ? "#9c27b0" : "#4caf50";
+        } else {
+          const s = Math.ceil(timeLeft / 1000);
+          timerDiv.textContent = s > 60 ? `${Math.ceil(s/60)}분` : `${s}초`;
+          timerDiv.style.background = "rgba(0,0,0,0.6)";
+        }
+      }
+    });
+  }, 200);
+
+
+  // 상점/인벤 버튼
+  document.getElementById("shopBtn").onclick = () => document.getElementById("shopWindow").classList.remove("hidden");
+  document.getElementById("closeShop").onclick = () => document.getElementById("shopWindow").classList.add("hidden");
+  document.getElementById("inventoryBtn").onclick = () => {
+    updateInventoryUI();
+    document.getElementById("inventoryWindow").classList.remove("hidden");
+  };
+  document.getElementById("closeInv").onclick = () => document.getElementById("inventoryWindow").classList.add("hidden");
+
+  // 구매 로직
+  document.getElementById("shopWindow").addEventListener("click", (e) => {
+    if(e.target.classList.contains("buyItemBtn")){
+      const itemKey = e.target.dataset.item;
+      const cost = itemInfo[itemKey].cost;
+      if(coins >= cost){
+        coins -= cost; inventory[itemKey]++;
+        updateCoinDisplay(); updateInventoryUI();
+        showMsg(`${itemInfo[itemKey].name} 구매 완료`);
+      } else showMsg("코인 부족");
+    }
+    if(e.target.classList.contains("buySeedBtn")){
+      const seedKey = e.target.dataset.seed;
+      const cost = plantInfo[seedKey].cost;
+      if(coins >= cost){
+        coins -= cost; inventory[seedKey]++;
+        updateCoinDisplay(); updateInventoryUI();
+        showMsg(`${plantInfo[seedKey].name} 씨앗 구매 완료`);
+      } else showMsg("코인 부족");
+    }
+    if(e.target.classList.contains("buyEggBtn")) buyEgg('land');
+    if(e.target.classList.contains("buySeaEggBtn")) buyEgg('sea');
+  });
+
+});
+</script>
 </body>
 </html>
